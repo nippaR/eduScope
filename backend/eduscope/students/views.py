@@ -1,11 +1,7 @@
-from django.http import HttpResponse
-from django.template import loader
-from .models import Student
+from rest_framework import viewsets, parsers
+from .models import Application, Applicant
+from .serializers import ApplicantSerializer
 
-def members(request):
-  mymembers = Student.objects.all().values()
-  template = loader.get_template('all_members.html')
-  context = {
-    'mymembers': mymembers,
-  }
-  return HttpResponse(template.render(context, request))
+class ApplicantViewSet(viewsets.ModelViewSet):
+    queryset = Applicant.objects.all().order_by("id")
+    serializer_class = ApplicantSerializer

@@ -350,7 +350,7 @@ export default function ApplicantForm() {
 
           {/* Submit */}
           <div className="flex justify-end gap-3">
-              <Button type="button" variant="outline" className="border border-orange-300 hover:bg-orange-100" onClick={() => form.reset()}>
+              <Button type="button" variant="outline" onClick={() => form.reset()}>
               Reset
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>

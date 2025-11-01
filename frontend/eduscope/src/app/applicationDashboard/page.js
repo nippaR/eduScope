@@ -1,11 +1,12 @@
 'use client';
 import React from "react";
-import ApplicationStatusBars from "@/app/applicationDashboard/ApplicationStatusBars";
 import Image from "next/image";
 import LOGO from "@/app/Assets/EduScope.png";
 import Footer from "@/components/Footer";
 import {SidebarProvider,} from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/ui/appsidebar";
+import ApplicationStatusBars from "@/app/applicationDashboard/ApplicationStatusBars";
+import ApplicationTable from "@/app/applicationDashboard/ApplicationTable";
 
 
 export default function ApplicationDashboard() {
@@ -29,9 +30,14 @@ export default function ApplicationDashboard() {
                     <Image src={LOGO} alt="EduScope Logo" className="w-48 h-10 justify-self-end" />
                     
                 </div>
-
+                {/* Application Status Bars Section */}
                 <div>
                     <ApplicationStatusBars />
+                </div>
+
+                {/* Application Table Section */}
+                <div>
+                    <ApplicationTable />
                 </div>
 
             </main>

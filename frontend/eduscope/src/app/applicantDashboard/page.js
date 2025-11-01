@@ -5,8 +5,17 @@ import LOGO from "@/app/Assets/EduScope.png";
 import Footer from "@/components/Footer";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/ui/appsidebar";
+import {
+    Table,
+    TableBody,
+    TableCaption,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+    } from "@/components/ui/table";
 
-export default function ApplicantDashboard() {
+    export default function ApplicantDashboard() {
     const [applicants, setApplicants] = useState([]);
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -46,20 +55,17 @@ export default function ApplicantDashboard() {
         loadData();
     }, []);
 
-    // Memoized map of applicant ID to their applications
+    // Create a Map: applicantId → their applications
     const appsByApplicantId = useMemo(() => {
         const map = new Map();
         for (const app of applications) {
-
-        // Adjust the key name below to match your API shape:
         const key = app.applicant_id || app.applicantId || app.applicant || app.ApplicantId;
         if (!key) continue;
         if (!map.has(key)) map.set(key, []);
         map.get(key).push(app);
         }
-        
-        // Optional: sort each applicant's apps by created_at/updated_at if available
-        //first come latest
+
+        // Sort each applicant’s applications newest first
         for (const [k, arr] of map) {
         arr.sort((a, b) => {
             const da = new Date(a.updated_at || a.created_at || 0).getTime();
@@ -70,51 +76,61 @@ export default function ApplicantDashboard() {
         return map;
     }, [applications]);
 
-    if (loading) {
-        return (
-        <div className="p-6 text-gray-600">Loading applicants & applications…</div>
-        );
-    }
-
-    if (errorMsg) {
-        return (
-        <div className="p-6 text-red-600">Error: {errorMsg}</div>
-        );
-    }
+    if (loading) return <div className="p-6 text-gray-600">Loading applicants & applications…</div>;
+    if (errorMsg) return <div className="p-6 text-red-600">Error: {errorMsg}</div>;
 
     return (
         <div>
         <SidebarProvider>
             <AppSidebar />
+
             <main className="grow flex flex-col items-center py-6">
             <div className="bg-white shadow-md rounded-md p-3 w-6xl grid grid-cols-2 gap-2 sticky top-0 z-10">
                 <h3 className="text-2xl font-bold text-orange-500">Applicant Dashboard</h3>
                 <Image src={LOGO} alt="EduScope Logo" className="w-48 h-10 justify-self-end" />
             </div>
 
-            <div className="mt-6 w-6xl bg-white shadow-md rounded-md p-6">
+            <div className="mt-6 w-6xl bg-white shadow-md rounded-md p-6 overflow-x-auto">
                 <h2 className="text-xl font-semibold mb-4">Applicant Details</h2>
 
-                {applicants.map((a) => {
-                const apps = appsByApplicantId.get(a.id) || [];
-                // Option A: show latest status (most recent app first due to sort above)
-                const latestStatus = apps[0]?.status ?? "N/A";
+                <Table>
+                <TableCaption>List of applicants with their latest status</TableCaption>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Address</TableHead>
+                    <TableHead>Date of Birth</TableHead>
+                    <TableHead>Latest Status</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {applicants.length > 0 ? (
+                    applicants.map((a) => {
+                        const apps = appsByApplicantId.get(a.id) || [];
+                        const latestStatus = apps[0]?.status ?? "N/A";
 
-                return (
-                    <div key={a.id} className="border-b border-gray-300 pb-4 mb-4">
-                    <p><strong>Name:</strong> {a.first_name} {a.last_name}</p>
-                    <p><strong>Email:</strong> {a.email}</p>
-                    <p><strong>Phone:</strong> {a.phone}</p>
-                    <p><strong>Address:</strong> {a.address}</p>
-                    <p><strong>Date of Birth:</strong> {a.dob}</p>
-                    <p><strong>Guardian Name:</strong> {a.guardian_name}</p>
-
-                    {/* Option A: single (latest) status */}
-                    <p className="mt-2"><strong>Latest Application Status:</strong> {latestStatus}</p>
-                    
-                    </div>
-                );
-                })}
+                        return (
+                        <TableRow key={a.id}>
+                            <TableCell>{`${a.first_name ?? ""} ${a.last_name ?? ""}`}</TableCell>
+                            <TableCell>{a.email ?? "—"}</TableCell>
+                            <TableCell>{a.phone ?? "—"}</TableCell>
+                            <TableCell>{a.address ?? "—"}</TableCell>
+                            <TableCell>{a.dob ?? "—"}</TableCell>
+                            <TableCell className="capitalize">{latestStatus}</TableCell>
+                        </TableRow>
+                        );
+                    })
+                    ) : (
+                    <TableRow>
+                        <TableCell colSpan={6} className="text-center py-4">
+                        No applicants found.
+                        </TableCell>
+                    </TableRow>
+                    )}
+                </TableBody>
+                </Table>
             </div>
             </main>
         </SidebarProvider>

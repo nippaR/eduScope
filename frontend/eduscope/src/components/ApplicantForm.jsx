@@ -4,6 +4,7 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { toast,Toaster } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +16,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input"; // <-- your forwardRef Input with default type
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
@@ -56,6 +57,7 @@ const formSchema = z.object({
       const age = hasBirthdayPassed ? ageDiff : ageDiff - 1;
       return age >= 6;
     }, { message: "Minimum age must be 6 years." }),
+
   guardian_name: z
     .string()
     .trim()
@@ -64,12 +66,13 @@ const formSchema = z.object({
       message:
         "Guardian name can only contain letters, spaces, apostrophes, and hyphens.",
     }),
+
   email: z
     .string()
     .trim()
     .email({ message: "Enter a valid email address." })
     .max(100, { message: "Email must be at most 100 characters." }),
-  // E.164 international format: +[country][number], 8–15 digits total after +
+
   phone: z
     .string()
     .trim()
@@ -78,6 +81,7 @@ const formSchema = z.object({
         "Enter a valid international number like +94771234567 (8–15 digits, no spaces).",
     })
     .max(20, { message: "Phone must be at most 20 characters." }),
+
   address: z
     .string()
     .trim()
@@ -85,7 +89,7 @@ const formSchema = z.object({
 });
 
 export default function ApplicantForm() {
-  // Compute today's date on the client to avoid SSR hydration drift
+  
   const [today, setToday] = React.useState("");
   React.useEffect(() => {
     setToday(new Date().toISOString().split("T")[0]);
@@ -97,7 +101,7 @@ export default function ApplicantForm() {
     defaultValues: {
       first_name: "",
       last_name: "",
-      gender: "male",
+      gender: "",
       dob: "",
       guardian_name: "",
       email: "",
@@ -106,16 +110,39 @@ export default function ApplicantForm() {
     },
   });
 
-  const onSubmit = (data) => {
-    console.log("Submitted data:", data);
-  };
+  const onSubmit = async (data) => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}Applicant/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("Applicant saved:", result);
+    toast.success("Application Submitted!", {
+      description: "Your application has been successfully sent.",
+      duration: 4000,
+    });
+
+    form.reset();
+  } catch (error) {
+    console.error("❌ Error submitting applicant:", error);
+    alert("Failed to submit applicant. Please try again.");
+  }
+};
 
   return (
     <div>
+      <Toaster position="top-middle" richColors />
       {/* Header */}
       <div className="p-4 bg-white rounded-md shadow-md w-4xl justify-center mx-auto text-center border border-orange-400 mb-10">
         <h2 className="text-2xl text-orange-500 font-semibold">
-          Submit Your Applicant Details
+          Add Student Details Form
         </h2>
       </div>
 
@@ -133,7 +160,7 @@ export default function ApplicantForm() {
                   <FormControl>
                     <Input
                       {...field}
-                      value={field.value ?? ""}   // keep controlled
+                      value={field.value ?? ""}
                       type="text"
                       placeholder="John"
                       inputMode="text"
@@ -158,7 +185,7 @@ export default function ApplicantForm() {
                   <FormControl>
                     <Input
                       {...field}
-                      value={field.value ?? ""}   // keep controlled
+                      value={field.value ?? ""}
                       type="text"
                       placeholder="Wick"
                       inputMode="text"
@@ -182,9 +209,8 @@ export default function ApplicantForm() {
               <FormItem>
                 <FormLabel>Gender</FormLabel>
                 <FormControl>
-                  {/* Do NOT spread {...field} here; RadioGroup doesn't support all those props */}
                   <RadioGroup
-                    value={field.value ?? "male"}
+                    value={field.value ?? ""}
                     onValueChange={field.onChange}
                     className="grid grid-cols-3 gap-4"
                   >
@@ -218,12 +244,12 @@ export default function ApplicantForm() {
                 <FormControl>
                   <Input
                     {...field}
-                    value={field.value ?? ""}      // keep controlled
+                    value={field.value ?? ""}
                     type="date"
                     placeholder="YYYY-MM-DD"
                     inputMode="numeric"
                     autoComplete="bday"
-                    max={today || undefined}       // set on client to avoid SSR mismatch
+                    max={today || undefined}
                   />
                 </FormControl>
                 <FormDescription>Minimum age must be 6 years.</FormDescription>
@@ -240,10 +266,9 @@ export default function ApplicantForm() {
               <FormItem>
                 <FormLabel>Guardian Name</FormLabel>
                 <FormControl>
-                  {/* ⛔ removed stray `{...field}` child that caused crashes */}
                   <Input
                     {...field}
-                    value={field.value ?? ""}      // keep controlled
+                    value={field.value ?? ""}
                     type="text"
                     placeholder="Parent or Guardian"
                     inputMode="text"
@@ -266,7 +291,7 @@ export default function ApplicantForm() {
                 <FormControl>
                   <Input
                     {...field}
-                    value={field.value ?? ""}      // keep controlled
+                    value={field.value ?? ""}
                     type="email"
                     placeholder="name@example.com"
                     autoComplete="email"
@@ -287,7 +312,7 @@ export default function ApplicantForm() {
                 <FormControl>
                   <Input
                     {...field}
-                    value={field.value ?? ""}      // keep controlled
+                    value={field.value ?? ""}
                     type="text"
                     inputMode="tel"
                     placeholder="+94771234567"
@@ -312,7 +337,7 @@ export default function ApplicantForm() {
                 <FormControl>
                   <Input
                     {...field}
-                    value={field.value ?? ""}      // keep controlled
+                    value={field.value ?? ""}
                     type="text"
                     placeholder="Street, City, Postal code"
                     autoComplete="street-address"
@@ -324,12 +349,14 @@ export default function ApplicantForm() {
           />
 
           {/* Submit */}
-          <Button
-            type="submit"
-            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md"
-          >
-            Submit
-          </Button>
+          <div className="flex justify-end gap-3">
+              <Button type="button" variant="outline" className="border border-orange-300 hover:bg-orange-100" onClick={() => form.reset()}>
+              Reset
+              </Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? "Submitting..." : "Submit Application"}
+              </Button>
+          </div>
         </form>
       </Form>
     </div>

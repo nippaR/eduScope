@@ -4,51 +4,57 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
-    Form, FormField, FormItem, FormLabel, FormControl, FormMessage,
-    } from "@/components/ui/form";
+    Form,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormControl,
+    FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+    Select,
+    SelectTrigger,
+    SelectValue,
+    SelectContent,
+    SelectItem,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner"
 
-    // ---- Constants (tweak as you like) ----
-    const GRADES = ["Grade 1","Grade 2","Grade 3","Grade 4","Grade 5","Grade 6","Grade 7","Grade 8","Grade 9","Grade 10","Grade 11","Grade 12","Grade 13"];
+// ---- Constants ----
+const GRADES = [
+    "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5",
+    "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10",
+    "Grade 11", "Grade 12", "Grade 13",
+    ];
 
+    const EXTRA_OPTIONS = ["Sports", "Music", "Art", "Debate", "Scouts", "Coding Club"];
     const MAX_IMG_MB = 5;
     const MAX_DOC_MB = 10;
     const toMB = (bytes) => bytes / (1024 * 1024);
 
-    // ---- Zod schema ----
-    const fileOptional = z
-    .instanceof(File)
-    .optional()
-    .or(z.any().refine((v) => v === undefined, "Invalid file"));
+    // ---- Validation Schema ----
+    const fileOptional = z.instanceof(File).optional();
 
-    const imageFile = fileOptional.refine(
-    (file) => !file || file.type.startsWith("image/"),
-    { message: "Only image files are allowed." }
-    ).refine(
-    (file) => !file || toMB(file.size) <= MAX_IMG_MB,
-    { message: `Image must be ≤ ${MAX_IMG_MB} MB.` }
-    );
+    const imageFile = fileOptional
+    .refine((file) => !file || file.type.startsWith("image/"), { message: "Only image files allowed" })
+    .refine((file) => !file || toMB(file.size) <= MAX_IMG_MB, { message: `Image ≤ ${MAX_IMG_MB} MB` });
 
-    const docFile = fileOptional.refine(
-    (file) => !file || ["application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ].includes(file.type),
-    { message: "Only PDF or DOC/DOCX files are allowed." }
-    ).refine(
-    (file) => !file || toMB(file.size) <= MAX_DOC_MB,
-    { message: `Document must be ≤ ${MAX_DOC_MB} MB.` }
-    );
+    const docFile = fileOptional
+    .refine(
+        (file) =>
+        !file ||
+        ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type),
+        { message: "Only PDF or DOC/DOCX allowed" }
+    )
+    .refine((file) => !file || toMB(file.size) <= MAX_DOC_MB, { message: `Document ≤ ${MAX_DOC_MB} MB` });
 
     const FormSchema = z.object({
-    applicant: z.string().min(1, "Missing applicant id"), // pass in as prop default
+    applicant: z.string().min(1, "Select an applicant"),
     apply_grade: z.string().min(1, "Select a grade"),
     extra_curriculars_checked: z.array(z.string()).optional(),
     extra_curriculars_other: z.string().trim().optional(),
@@ -57,14 +63,16 @@ import { toast } from "sonner"
     health_record: docFile,
     });
 
-    export default function ApplicationForm({ applicantId, apiUrl = "/api/applications/" }) {
-    
+    // ---- Component ----
+    export default function ApplicationForm() {
+    const [applicants, setApplicants] = React.useState([]);
     const [photoPreview, setPhotoPreview] = React.useState(null);
 
+    // Initialize React Hook Form
     const form = useForm({
         resolver: zodResolver(FormSchema),
         defaultValues: {
-        applicant: applicantId ?? "",
+        applicant: "",
         apply_grade: "",
         extra_curriculars_checked: [],
         extra_curriculars_other: "",
@@ -72,10 +80,25 @@ import { toast } from "sonner"
         birth_certificate: undefined,
         health_record: undefined,
         },
-        mode: "onSubmit",
     });
 
-    // Preview for image
+    // Fetch applicant names
+    React.useEffect(() => {
+        async function loadApplicants() {
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}Applicant/`, {
+            cache: "no-store",
+            });
+            const data = await res.json();
+            setApplicants(data);
+        } catch (error) {
+            console.error("Error loading applicants:", error);
+        }
+        }
+        loadApplicants();
+    }, []);
+
+    // Preview photo
     const watchPhoto = form.watch("photo");
     React.useEffect(() => {
         if (watchPhoto && watchPhoto instanceof File) {
@@ -86,8 +109,8 @@ import { toast } from "sonner"
         setPhotoPreview(null);
     }, [watchPhoto]);
 
+    // Handle form submission
     async function onSubmit(values) {
-        // Build JSON for extra_curriculars
         const extras = [
         ...(values.extra_curriculars_checked || []),
         ...(values.extra_curriculars_other?.trim() ? [values.extra_curriculars_other.trim()] : []),
@@ -96,18 +119,16 @@ import { toast } from "sonner"
         const fd = new FormData();
         fd.append("applicant", values.applicant);
         fd.append("apply_grade", values.apply_grade);
-        fd.append("extra_curriculars", JSON.stringify(extras)); // Django JSONField
-
+        fd.append("extra_curriculars", JSON.stringify(extras));
         if (values.photo) fd.append("photo", values.photo);
         if (values.birth_certificate) fd.append("birth_certificate", values.birth_certificate);
         if (values.health_record) fd.append("health_record", values.health_record);
+        fd.append("status", "pending");
 
         try {
-        const res = await fetch(apiUrl, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}Application/`, {
             method: "POST",
             body: fd,
-            // If you use CSRF cookies + same-site, you may also add:
-            // credentials: "include",
         });
 
         if (!res.ok) {
@@ -115,64 +136,77 @@ import { toast } from "sonner"
             throw new Error(errText || `Request failed with ${res.status}`);
         }
 
-        toast.success("Application submitted", { description: "We received your details." });
-        form.reset({ ...form.getValues(), apply_grade: "", extra_curriculars_checked: [], extra_curriculars_other: "", photo: undefined, birth_certificate: undefined, health_record: undefined });
+        toast.success("Application submitted", { description: "Your details were received successfully!" });
+        form.reset();
         setPhotoPreview(null);
-        } catch (e) {
-        toast.error("Submit failed", { description: e.message });
+        } catch (error) {
+        console.error(error);
+        toast.error("Submit failed", { description: error.message });
         }
     }
 
-    const EXTRA_OPTIONS = [
-        "Sports", "Music", "Art", "Debate", "Scouts", "Coding Club",
-    ];
-
     return (
-        <div className="max-w-3xl mx-auto p-6">
-        <h2 className="text-2xl font-semibold mb-4">New Application</h2>
+        <div>
+
+            {/* Header */}
+            <div className="p-4 bg-white rounded-md shadow-md w-4xl justify-center mx-auto text-center border border-orange-400 mb-10">
+                <h2 className="text-2xl text-orange-500 font-semibold">
+                    Add Student Details Form
+                </h2>
+            </div>
 
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Applicant (hidden if you infer from auth) */}
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 w-4xl p-10 bg-white rounded-md shadow-md border border-orange-400 mx-auto mb-10">
+            
+            {/* Applicant Dropdown */}
+
+        <div className="grid grid-cols-2 gap-12">
             <FormField
                 control={form.control}
                 name="applicant"
                 render={({ field }) => (
-                <FormItem className="hidden">
-                    <FormLabel>Applicant</FormLabel>
-                    <FormControl>
-                    <Input {...field} />
-                    </FormControl>
+                <FormItem>
+                    <FormLabel>Applicant Name</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select Applicant Name" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {applicants.map((applicant) => (
+                        <SelectItem key={applicant.id} value={String(applicant.id)}>
+                            {applicant.first_name} {applicant.last_name}
+                        </SelectItem>
+                        ))}
+                    </SelectContent>
+                    </Select>
                     <FormMessage />
                 </FormItem>
                 )}
             />
 
-            {/* Grade */}
+            {/* Grade Dropdown */}
             <FormField
                 control={form.control}
                 name="apply_grade"
                 render={({ field }) => (
                 <FormItem>
                     <FormLabel>Applying Grade</FormLabel>
-                    <FormControl>
                     <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger>
-                        <SelectValue placeholder="Select grade" />
-                        </SelectTrigger>
-                        <SelectContent>
+                    <SelectTrigger><SelectValue placeholder="Select grade" /></SelectTrigger>
+                    <SelectContent>
                         {GRADES.map((g) => (
-                            <SelectItem key={g} value={g}>{g}</SelectItem>
+                        <SelectItem key={g} value={g}>{g}</SelectItem>
                         ))}
-                        </SelectContent>
+                    </SelectContent>
                     </Select>
-                    </FormControl>
                     <FormMessage />
                 </FormItem>
                 )}
             />
 
-            {/* Extra Curriculars (JSONField) */}
+            </div>
+
+            {/* Extra-Curricular Activities Section */}
             <FormField
                 control={form.control}
                 name="extra_curriculars_checked"
@@ -194,7 +228,8 @@ import { toast } from "sonner"
                                     checked={checked}
                                     onCheckedChange={(v) => {
                                     const arr = new Set(field.value || []);
-                                    if (v) arr.add(label); else arr.delete(label);
+                                    if (v) arr.add(label);
+                                    else arr.delete(label);
                                     field.onChange(Array.from(arr));
                                     }}
                                 />
@@ -206,6 +241,7 @@ import { toast } from "sonner"
                         />
                     ))}
                     </div>
+
                     <div className="mt-3">
                     <FormLabel className="text-sm">Other</FormLabel>
                     <FormField
@@ -222,42 +258,33 @@ import { toast } from "sonner"
                 )}
             />
 
-            {/* Photo (ImageField) */}
+            {/* Photo Upload */}
             <FormField
                 control={form.control}
                 name="photo"
                 render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Photo (image ≤ {MAX_IMG_MB} MB)</FormLabel>
+                    <FormLabel>Applicant Photo</FormLabel>
                     <FormControl>
-                    <Input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => field.onChange(e.target.files?.[0])}
-                    />
+                    <Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files?.[0])} />
                     </FormControl>
-                    {photoPreview && (
-                    <div className="mt-2">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={photoPreview} alt="Preview" className="h-32 rounded-lg object-cover" />
-                    </div>
-                    )}
+                    {photoPreview && <img src={photoPreview} alt="Preview" className="h-32 mt-2 rounded-md" />}
                     <FormMessage />
                 </FormItem>
                 )}
             />
-
-            {/* Birth certificate (FileField) */}
+            <div className="grid grid-cols-2 gap-12">
+            {/* Birth Certificate */}
             <FormField
                 control={form.control}
                 name="birth_certificate"
                 render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Birth Certificate (PDF/DOC/DOCX ≤ {MAX_DOC_MB} MB)</FormLabel>
+                    <FormLabel>Birth Certificate (PDF/DOC/DOCX)</FormLabel>
                     <FormControl>
                     <Input
                         type="file"
-                        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        accept=".pdf,.doc,.docx"
                         onChange={(e) => field.onChange(e.target.files?.[0])}
                     />
                     </FormControl>
@@ -266,17 +293,17 @@ import { toast } from "sonner"
                 )}
             />
 
-            {/* Health record (FileField) */}
+            {/* Health Record */}
             <FormField
                 control={form.control}
                 name="health_record"
                 render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Health Record (PDF/DOC/DOCX ≤ {MAX_DOC_MB} MB)</FormLabel>
+                    <FormLabel>Health Record (PDF/DOC/DOCX)</FormLabel>
                     <FormControl>
                     <Input
                         type="file"
-                        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        accept=".pdf,.doc,.docx"
                         onChange={(e) => field.onChange(e.target.files?.[0])}
                     />
                     </FormControl>
@@ -284,10 +311,11 @@ import { toast } from "sonner"
                 </FormItem>
                 )}
             />
+            </div>
 
             {/* Submit */}
             <div className="flex justify-end gap-3">
-                <Button type="button" variant="outline" onClick={() => form.reset()}>
+                <Button type="button" variant="outline" className="border border-orange-300 hover:bg-orange-100" onClick={() => form.reset()}>
                 Reset
                 </Button>
                 <Button type="submit" disabled={form.formState.isSubmitting}>

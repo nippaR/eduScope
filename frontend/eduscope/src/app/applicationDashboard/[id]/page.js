@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import LOGO from '@/app/Assets/EduScope.png';
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@/components/ui/badge";
+import BDView from './BDView';
+
 
 export default function ApplicationView() {
     const { id } = useParams();
@@ -70,7 +72,12 @@ export default function ApplicationView() {
 
     return (
         // Center the whole page content
+        <div>
+        <div className="w-full flex justify-end mb-4 px-15 mt-5">
+            <BDView />
+        </div>
         <main className="min-h-screen flex justify-center bg-gray-50">
+
         {/* Constrain width and center */}
         <div className="w-full max-w-4xl mx-auto px-4 py-6">
             {/* Header card */}
@@ -227,5 +234,6 @@ export default function ApplicationView() {
             )}
         </div>
         </main>
+        </div>
     );
 }
